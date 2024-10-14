@@ -1,5 +1,7 @@
 // import the Filter trait from warp
+use serde::Deserialize;
 use serde::Serialize;
+use std::collections::HashMap;
 use warp::{
     filters::cors::CorsForbidden, http::Method, http::StatusCode, reject::Reject, Filter,
     Rejection, Reply,
@@ -8,14 +10,14 @@ use warp::{
 use std::io::{Error, ErrorKind};
 use std::str::FromStr;
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 struct Question {
     id: QuestionId,
     title: String,
     content: String,
     tags: Option<Vec<String>>,
 }
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize, Eq, Hash, PartialEq, Clone)]
 struct QuestionId(String);
 
 impl FromStr for QuestionId {
@@ -44,15 +46,15 @@ struct InvalidId;
 impl Reject for InvalidId {}
 async fn get_questions() -> Result<impl Reply, Rejection> {
     // Fetch the data (this is just a placeholder; provide your logic here)
-    let questions = vec![
-        "What is Rust?",
-        "How does ownership work?",
-        "What are traits?",
-    ];
+    // let questions = vec![
+    //     "What is Rust?",
+    //     "How does ownership work?",
+    //     "What are traits?",
+    // ];
+    // // Convert the data to JSON
+    // let json = warp::reply::json(&questions);
 
-    // Convert the data to JSON
-    let json = warp::reply::json(&questions);
-    Ok(json)
+    Ok(Store::init())
 }
 async fn return_error(r: Rejection) -> Result<impl Reply, Rejection> {
     if let Some(error) = r.find::<CorsForbidden>() {
@@ -70,6 +72,21 @@ async fn return_error(r: Rejection) -> Result<impl Reply, Rejection> {
             "Route not found".to_string(),
             StatusCode::NOT_FOUND,
         ))
+    }
+}
+#[derive(Clone)]
+struct Store {
+    questions: HashMap<QuestionId, Question>,
+}
+impl Store {
+    fn new() -> Self {
+        Store {
+            questions: Self::init(),
+        }
+    }
+    fn init() -> HashMap<QuestionId, Question> {
+        let file = include_str!("../question.json");
+        serde_json::from_str(file).expect("can't read questions.json")
     }
 }
 #[tokio::main]
